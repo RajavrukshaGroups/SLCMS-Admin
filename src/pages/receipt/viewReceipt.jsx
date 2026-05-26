@@ -3,6 +3,7 @@ import AdminLayout from "../../components/layout/adminLayout";
 import api from "../../api/axios";
 import { FiEdit, FiEye, FiTrash } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const ViewReceipts = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ const ViewReceipts = () => {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const formatDate = (date) => {
     const d = new Date(date);
@@ -57,12 +59,63 @@ const ViewReceipts = () => {
     }
   };
 
+  const handleExportToSheet = async () => {
+    try {
+      setExportLoading(true);
+
+      toast.loading("Exporting receipt data to Google Sheet...", {
+        toastId: "exportReceipts",
+      });
+
+      const res = await api.post("/admin/bulk-upload-receipts");
+
+      toast.update("exportReceipts", {
+        render: res.data.message || "Export completed successfully",
+        type: "success",
+        isLoading: false,
+        autoClose: 3000,
+      });
+    } catch (err) {
+      console.log(err);
+
+      toast.update("exportReceipts", {
+        render: err.response?.data?.message || "Failed to export receipt data",
+        type: "error",
+        isLoading: false,
+        autoClose: 3000,
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <AdminLayout>
-      <div className="p-6">
+      <div
+        className={`p-6 transition duration-200 ${
+          exportLoading ? "blur-sm pointer-events-none select-none" : ""
+        }`}
+      >
+        {" "}
         {/* 🔥 HEADER */}
-        <h1 className="text-2xl font-bold text-green-800 mb-4">All Receipts</h1>
+        {/* <h1 className="text-2xl font-bold text-green-800 mb-4">All Receipts</h1> */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+          <h1 className="text-2xl font-bold text-green-800">All Receipts</h1>
 
+          <button
+            onClick={handleExportToSheet}
+            disabled={exportLoading}
+            className={`px-5 py-2 rounded-lg text-white font-semibold shadow transition ${
+              exportLoading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-700 hover:bg-green-800"
+            }`}
+          >
+            {exportLoading
+              ? "Exporting To Google Sheet..."
+              : "Export To Google Sheet"}
+          </button>
+        </div>
         {/* 🔍 SEARCH */}
         <input
           type="text"
@@ -74,7 +127,6 @@ const ViewReceipts = () => {
             setSearch(e.target.value);
           }}
         />
-
         {/* 📋 TABLE */}
         <div className="overflow-x-auto bg-white rounded-xl shadow border border-gray-100">
           <table className="w-full text-sm">
@@ -159,7 +211,6 @@ const ViewReceipts = () => {
             </tbody>
           </table>
         </div>
-
         {/* 🔥 PAGINATION */}
         <div className="flex justify-center mt-4 gap-2">
           <button
@@ -183,6 +234,19 @@ const ViewReceipts = () => {
           </button>
         </div>
       </div>
+      {exportLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/20">
+          <div className="bg-white px-6 py-5 rounded-xl shadow-2xl flex flex-col items-center">
+            <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+
+            <p className="text-green-800 font-semibold text-lg">
+              Exporting Data To Google Sheet...
+            </p>
+
+            <p className="text-gray-500 text-sm mt-1">Please wait</p>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };
