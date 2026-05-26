@@ -102,7 +102,7 @@ const ViewReceipts = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <h1 className="text-2xl font-bold text-green-800">All Receipts</h1>
 
-          <button
+          {/* <button
             onClick={handleExportToSheet}
             disabled={exportLoading}
             className={`px-5 py-2 rounded-lg text-white font-semibold shadow transition ${
@@ -114,7 +114,7 @@ const ViewReceipts = () => {
             {exportLoading
               ? "Exporting To Google Sheet..."
               : "Export To Google Sheet"}
-          </button>
+          </button> */}
         </div>
         {/* 🔍 SEARCH */}
         <input
