@@ -13,8 +13,8 @@ const GenerateReceipt = () => {
     name: "",
     course: "",
     year: "",
-    paymentMode: "cash",
-    referenceNumber: "",
+    // paymentMode: "cash",
+    // referenceNumber: "",
   });
 
   useEffect(() => {
@@ -35,17 +35,41 @@ const GenerateReceipt = () => {
 
       const data = res.data.receipt;
 
+      // setForm({
+      //   receiptNumber: data.receiptNumber || "",
+      //   receiptDate: data.receiptDate?.split("T")[0],
+      //   name: data.name || "",
+      //   course: data.course || "",
+      //   year: data.year || "",
+      //   paymentMode: data.paymentMode || "cash",
+      //   referenceNumber: data.referenceNumber || "",
+      // });
       setForm({
         receiptNumber: data.receiptNumber || "",
         receiptDate: data.receiptDate?.split("T")[0],
         name: data.name || "",
         course: data.course || "",
         year: data.year || "",
-        paymentMode: data.paymentMode || "cash",
-        referenceNumber: data.referenceNumber || "",
       });
 
-      setParticulars(data.particulars || [{ title: "", amount: "" }]);
+      // setParticulars(data.particulars || [{ title: "", amount: "" }]);
+      setParticulars(
+        data.particulars?.length
+          ? data.particulars.map((item) => ({
+              title: item.title || "",
+              amount: item.amount || "",
+              paymentMode: item.paymentMode || "cash",
+              referenceNumber: item.referenceNumber || "",
+            }))
+          : [
+              {
+                title: "",
+                amount: "",
+                paymentMode: "cash",
+                referenceNumber: "",
+              },
+            ],
+      );
     } catch (err) {
       toast.error("Error fetching receipt");
     }
@@ -53,8 +77,14 @@ const GenerateReceipt = () => {
 
   // 🔥 Calculate total
 
-  const [particulars, setParticulars] = useState([{ title: "", amount: "" }]);
-
+  const [particulars, setParticulars] = useState([
+    {
+      title: "",
+      amount: "",
+      paymentMode: "cash",
+      referenceNumber: "",
+    },
+  ]);
   const totalAmount = particulars.reduce(
     (sum, item) => sum + Number(item.amount || 0),
     0,
@@ -92,7 +122,15 @@ const GenerateReceipt = () => {
   };
 
   const addParticular = () => {
-    setParticulars([...particulars, { title: "", amount: "" }]);
+    setParticulars([
+      ...particulars,
+      {
+        title: "",
+        amount: "",
+        paymentMode: "cash",
+        referenceNumber: "",
+      },
+    ]);
   };
 
   const removeParticular = (index) => {
@@ -107,11 +145,16 @@ const GenerateReceipt = () => {
       name: "",
       course: "",
       year: "",
-      paymentMode: "cash",
-      referenceNumber: "",
     });
 
-    setParticulars([{ title: "", amount: "" }]);
+    setParticulars([
+      {
+        title: "",
+        amount: "",
+        paymentMode: "cash",
+        referenceNumber: "",
+      },
+    ]);
   };
 
   // 🔥 Submit
@@ -274,14 +317,6 @@ const GenerateReceipt = () => {
 
             {particulars.map((item, index) => (
               <div key={index} className="flex gap-2 mb-3 items-center">
-                {/* <input
-                  placeholder="Title"
-                  value={item.title}
-                  className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-green-500"
-                  onChange={(e) =>
-                    handleParticularChange(index, "title", e.target.value)
-                  }
-                /> */}
                 <select
                   value={item.title}
                   onChange={(e) =>
@@ -320,6 +355,35 @@ const GenerateReceipt = () => {
                   }
                 />
 
+                <select
+                  value={item.paymentMode}
+                  onChange={(e) =>
+                    handleParticularChange(index, "paymentMode", e.target.value)
+                  }
+                  className="border border-gray-300 p-3 rounded-lg w-40 focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="dd">DD</option>
+                </select>
+
+                {item.paymentMode !== "cash" && (
+                  <input
+                    type="text"
+                    placeholder="Ref No"
+                    value={item.referenceNumber}
+                    className="border border-gray-300 p-3 rounded-lg w-52 focus:ring-2 focus:ring-green-500"
+                    onChange={(e) =>
+                      handleParticularChange(
+                        index,
+                        "referenceNumber",
+                        e.target.value,
+                      )
+                    }
+                  />
+                )}
+
                 <button
                   type="button"
                   onClick={() => removeParticular(index)}
@@ -350,7 +414,7 @@ const GenerateReceipt = () => {
           </div>
 
           {/* PAYMENT MODE */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* <div className="grid grid-cols-2 gap-4">
             <select
               name="paymentMode"
               value={form.paymentMode}
@@ -372,7 +436,7 @@ const GenerateReceipt = () => {
                 onChange={handleChange}
               />
             )}
-          </div>
+          </div> */}
 
           {/* SUBMIT */}
           <button
