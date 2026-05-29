@@ -189,8 +189,8 @@ const ViewReceipts = () => {
                       <button
                         onClick={() =>
                           window.open(
-                            // `http://localhost:11000/admin/view-receipt/${item._id}`,
-                            `https://server.bouncyboxstudio.in/admin/view-receipt/${item._id}`,
+                            `http://localhost:11000/admin/view-receipt/${item._id}`,
+                            // `https://server.bouncyboxstudio.in/admin/view-receipt/${item._id}`,
                             "_blank",
                           )
                         }

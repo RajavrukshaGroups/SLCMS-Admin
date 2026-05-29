@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 const GenerateReceipt = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     receiptNumber: "",
     receiptDate: "",
@@ -53,22 +54,54 @@ const GenerateReceipt = () => {
       });
 
       // setParticulars(data.particulars || [{ title: "", amount: "" }]);
+      // setParticulars(
+      //   data.particulars?.length
+      //     ? data.particulars.map((item) => ({
+      //         title: item.title || "",
+      //         amount: item.amount || "",
+      //         paymentMode: item.paymentMode || "cash",
+      //         referenceNumber: item.referenceNumber || "",
+      //       }))
+      //     : [
+      //         {
+      //           title: "",
+      //           amount: "",
+      //           paymentMode: "cash",
+      //           referenceNumber: "",
+      //         },
+      //       ],
+      // );
       setParticulars(
         data.particulars?.length
           ? data.particulars.map((item) => ({
               title: item.title || "",
               amount: item.amount || "",
-              paymentMode: item.paymentMode || "cash",
-              referenceNumber: item.referenceNumber || "",
             }))
           : [
               {
                 title: "",
                 amount: "",
-                paymentMode: "cash",
-                referenceNumber: "",
               },
             ],
+      );
+      setPaymentBreakup(
+        data.paymentBreakup?.length
+          ? data.paymentBreakup
+          : data.paymentMode
+            ? [
+                {
+                  paymentMode: data.paymentMode,
+                  amount: data.totalAmount,
+                  referenceNumber: data.referenceNumber || "",
+                },
+              ]
+            : [
+                {
+                  paymentMode: "cash",
+                  amount: "",
+                  referenceNumber: "",
+                },
+              ],
       );
     } catch (err) {
       toast.error("Error fetching receipt");
@@ -81,7 +114,14 @@ const GenerateReceipt = () => {
     {
       title: "",
       amount: "",
+      // paymentMode: "cash",
+      // referenceNumber: "",
+    },
+  ]);
+  const [paymentBreakup, setPaymentBreakup] = useState([
+    {
       paymentMode: "cash",
+      amount: "",
       referenceNumber: "",
     },
   ]);
@@ -89,6 +129,13 @@ const GenerateReceipt = () => {
     (sum, item) => sum + Number(item.amount || 0),
     0,
   );
+
+  const paymentTotal = paymentBreakup.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0,
+  );
+
+  const balanceAmount = totalAmount - paymentTotal;
 
   // 🔥 Handle input
   const handleChange = (e) => {
@@ -127,8 +174,8 @@ const GenerateReceipt = () => {
       {
         title: "",
         amount: "",
-        paymentMode: "cash",
-        referenceNumber: "",
+        // paymentMode: "cash",
+        // referenceNumber: "",
       },
     ]);
   };
@@ -151,7 +198,14 @@ const GenerateReceipt = () => {
       {
         title: "",
         amount: "",
+        // paymentMode: "cash",
+        // referenceNumber: "",
+      },
+    ]);
+    setPaymentBreakup([
+      {
         paymentMode: "cash",
+        amount: "",
         referenceNumber: "",
       },
     ]);
@@ -165,16 +219,37 @@ const GenerateReceipt = () => {
       (item) => item.title && item.amount,
     );
 
+    const validPaymentBreakup = paymentBreakup.filter(
+      (item) => item.paymentMode && Number(item.amount) > 0,
+    );
+
+    if (validPaymentBreakup.length === 0) {
+      toast.error("Please add payment details");
+      return;
+    }
+
     if (validParticulars.length === 0) {
       toast.error("Please add at least one valid particular");
       return;
     }
 
+    if (
+      validPaymentBreakup.reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0,
+      ) !== totalAmount
+    ) {
+      toast.error("Payment split total must equal receipt amount");
+      return;
+    }
+
     try {
+      setLoading(true);
       if (id) {
         await api.put(`/admin/edit-receipt/${id}`, {
           ...form,
           particulars: validParticulars,
+          paymentBreakup: validPaymentBreakup,
         });
 
         toast.success("Receipt Updated");
@@ -182,6 +257,7 @@ const GenerateReceipt = () => {
         await api.post("/admin/generate-receipt", {
           ...form,
           particulars: validParticulars,
+          paymentBreakup: validPaymentBreakup,
         });
 
         toast.success("Receipt Generated");
@@ -200,6 +276,8 @@ const GenerateReceipt = () => {
       const message = err.response?.data?.message || "Error saving receipt";
 
       toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -234,6 +312,21 @@ const GenerateReceipt = () => {
 
   return (
     <AdminLayout>
+      {loading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl px-8 py-6 shadow-2xl flex flex-col items-center gap-4">
+            <div className="h-12 w-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+
+            <p className="font-semibold text-gray-700">
+              {id ? "Updating Receipt..." : "Generating Receipt..."}
+            </p>
+
+            <p className="text-sm text-gray-500">
+              Please wait while we save the receipt and sync Google Sheet
+            </p>
+          </div>
+        </div>
+      )}
       <div className="p-8 max-w-4xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-100">
         {/* HEADER */}
         <h1 className="text-2xl font-bold text-green-800 mb-1">
@@ -355,35 +448,6 @@ const GenerateReceipt = () => {
                   }
                 />
 
-                <select
-                  value={item.paymentMode}
-                  onChange={(e) =>
-                    handleParticularChange(index, "paymentMode", e.target.value)
-                  }
-                  className="border border-gray-300 p-3 rounded-lg w-40 focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="dd">DD</option>
-                </select>
-
-                {item.paymentMode !== "cash" && (
-                  <input
-                    type="text"
-                    placeholder="Ref No"
-                    value={item.referenceNumber}
-                    className="border border-gray-300 p-3 rounded-lg w-52 focus:ring-2 focus:ring-green-500"
-                    onChange={(e) =>
-                      handleParticularChange(
-                        index,
-                        "referenceNumber",
-                        e.target.value,
-                      )
-                    }
-                  />
-                )}
-
                 <button
                   type="button"
                   onClick={() => removeParticular(index)}
@@ -413,6 +477,115 @@ const GenerateReceipt = () => {
             </span>
           </div>
 
+          <div className="mt-6">
+            <h2 className="text-md font-semibold text-gray-700 mb-3 border-b pb-1">
+              Payment Split
+            </h2>
+
+            {paymentBreakup.map((item, index) => (
+              <div key={index} className="flex gap-2 mb-3 items-center">
+                <select
+                  value={item.paymentMode}
+                  onChange={(e) => {
+                    const updated = [...paymentBreakup];
+                    updated[index].paymentMode = e.target.value;
+                    setPaymentBreakup(updated);
+                  }}
+                  className="border p-3 rounded-lg w-40"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="dd">DD</option>
+                </select>
+
+                <input
+                  type="number"
+                  placeholder="Amount"
+                  value={item.amount}
+                  onChange={(e) => {
+                    const updated = [...paymentBreakup];
+                    updated[index].amount = e.target.value;
+                    setPaymentBreakup(updated);
+                  }}
+                  className="border p-3 rounded-lg w-40"
+                />
+
+                {item.paymentMode !== "cash" && (
+                  <input
+                    type="text"
+                    placeholder="Reference Number"
+                    value={item.referenceNumber}
+                    onChange={(e) => {
+                      const updated = [...paymentBreakup];
+                      updated[index].referenceNumber = e.target.value;
+                      setPaymentBreakup(updated);
+                    }}
+                    className="border p-3 rounded-lg w-60"
+                  />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (paymentBreakup.length === 1) {
+                      toast.error("At least one payment mode is required");
+                      return;
+                    }
+
+                    setPaymentBreakup(
+                      paymentBreakup.filter((_, i) => i !== index),
+                    );
+                  }}
+                  className="text-red-500 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() =>
+                setPaymentBreakup([
+                  ...paymentBreakup,
+                  {
+                    paymentMode: "cash",
+                    amount: "",
+                    referenceNumber: "",
+                  },
+                ])
+              }
+              className="text-green-700"
+            >
+              + Add Payment Mode
+            </button>
+          </div>
+
+          <div className="bg-gray-50 border rounded-lg p-4 mt-4">
+            <div className="flex justify-between">
+              <span>Total Receipt Amount</span>
+              <span>₹ {totalAmount}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>Total Payment Split</span>
+              <span>₹ {paymentTotal}</span>
+            </div>
+
+            <div className="flex justify-between font-bold">
+              <span>Balance</span>
+
+              <span
+                className={
+                  balanceAmount === 0 ? "text-green-600" : "text-red-600"
+                }
+              >
+                ₹ {balanceAmount}
+              </span>
+            </div>
+          </div>
+
           {/* PAYMENT MODE */}
           {/* <div className="grid grid-cols-2 gap-4">
             <select
@@ -440,13 +613,22 @@ const GenerateReceipt = () => {
 
           {/* SUBMIT */}
           <button
-            className={`w-full py-3 rounded-lg text-black font-semibold text-lg shadow-md hover:shadow-lg transition-all duration-300 ${
-              id
-                ? "bg-green-600 hover:bg-green-700 text-white"
-                : "bg-yellow-500 hover:bg-yellow-600"
+            disabled={loading}
+            className={`w-full py-3 rounded-lg font-semibold text-lg shadow-md transition-all duration-300 ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : id
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-yellow-500 hover:bg-yellow-600 text-black"
             }`}
           >
-            {id ? "Update Receipt" : "Generate Receipt"}
+            {loading
+              ? id
+                ? "Updating..."
+                : "Generating..."
+              : id
+                ? "Update Receipt"
+                : "Generate Receipt"}
           </button>
         </form>
       </div>
